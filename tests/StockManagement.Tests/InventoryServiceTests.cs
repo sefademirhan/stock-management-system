@@ -1,3 +1,4 @@
+using Xunit;
 using StockManagement.Services;
 
 namespace StockManagement.Tests;
