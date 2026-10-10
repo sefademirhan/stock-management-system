@@ -1,41 +1,40 @@
 # Stock Management System
 
-A C# stock management console application built with .NET 8. This is a portfolio project that will grow in stages.
+[![.NET build and tests](https://github.com/sefademirhan/stock-management-system/actions/workflows/dotnet.yml/badge.svg)](https://github.com/sefademirhan/stock-management-system/actions/workflows/dotnet.yml)
 
-## Current features
+A beginner-friendly **C# / .NET 8** console application for basic inventory management. This project demonstrates object-oriented programming, validation, and automated unit tests.
 
-- Add, list, update, and delete products
-- Track stock-in and stock-out operations
-- Prevent stock from becoming negative
-- Warn when a product reaches its low-stock threshold
-- Validate product codes (SKU) to avoid duplicates
-- Validate user input
+## What works
+- Create, view, update and delete products
+- Track stock in and stock out
+- Reject duplicate stock codes (SKU) and negative stock quantities
+- Show items at or below a configurable low-stock threshold
+- Automated xUnit tests for the inventory service
 
-## Tech stack
-
-- C#
-- .NET 8
-- Object-oriented programming
-
-## Run locally
-
+## Getting started on Windows
 1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
-2. Clone this repository.
-3. Open a terminal in the repository folder and run:
+2. Download **Code → Download ZIP** on GitHub, extract it, and open **PowerShell** in the folder containing this README.
+3. Run the following command **without typing `bash`**:
 
-```bash
+```powershell
 dotnet run --project src/StockManagement/StockManagement.csproj
 ```
 
-## Important note
+Choose `2` to add a product, `1` to list products, `5` or `6` to change stock, and `7` for low-stock items. Choose `0` to exit.
 
-This first milestone keeps products in memory, so data resets when the application closes. The next planned milestone is persistence with Entity Framework Core and SQL Server, followed by inventory movement history and automated tests.
+## Run automated tests
+```powershell
+dotnet test tests/StockManagement.Tests/StockManagement.Tests.csproj
+```
 
-## Roadmap
+## Current limitation and roadmap
+**Data is stored in memory only. Closing the program clears all products.**
 
-- [x] Product CRUD operations
-- [x] Stock-in / stock-out
-- [x] Low-stock alerts
-- [ ] Save data with Entity Framework Core and SQL Server
-- [ ] Record inventory movement history
-- [ ] Add automated tests
+- [x] Product management and stock movements
+- [x] Low-stock alerts and input validation
+- [x] Unit tests and GitHub Actions checks
+- [ ] Entity Framework Core + SQL Server persistence
+- [ ] Stock movement history
+- [ ] More tests and reporting
+
+This project is a learning/portfolio application, not a production inventory service.
