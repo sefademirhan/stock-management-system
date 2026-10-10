@@ -25,9 +25,5 @@ jobs:
         run: dotnet build src/StockManagement/StockManagement.csproj --configuration Release --no-restore
       - name: Restore tests
         run: dotnet restore tests/StockManagement.Tests/StockManagement.Tests.csproj
-      - name: Run unit tests
+      - name: Run database-backed unit tests (SQLite in memory)
         run: dotnet test tests/StockManagement.Tests/StockManagement.Tests.csproj --configuration Release --no-restore
-      - name: Smoke test console app
-        run: |
-          printf '0\n' | dotnet run --project src/StockManagement/StockManagement.csproj --configuration Release --no-build > output.txt
-          grep -q "Goodbye!" output.txt

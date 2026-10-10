@@ -1,30 +1,32 @@
+using Microsoft.EntityFrameworkCore;
+using StockManagement.Data;
 using StockManagement.Models;
 
 namespace StockManagement.Services;
 
-public class InventoryService
+/// <summary>
+/// Product operations are saved to the configured EF Core database.
+/// </summary>
+public class InventoryService(StockDbContext db)
 {
-    private readonly List<Product> _products = [];
-    private int _nextId = 1;
+    public IReadOnlyList<Product> GetAll() =>
+        db.Products.AsNoTracking().OrderBy(p => p.Id).ToList();
 
-    public IReadOnlyList<Product> GetAll() => _products.AsReadOnly();
-
-    public Product? GetById(int id) => _products.FirstOrDefault(p => p.Id == id);
+    public Product? GetById(int id) =>
+        db.Products.AsNoTracking().FirstOrDefault(p => p.Id == id);
 
     public Product Add(string name, string sku, decimal unitPrice, int quantity, int lowStockThreshold)
     {
         ValidateProduct(name, sku, unitPrice, lowStockThreshold);
-
         if (quantity < 0)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity cannot be negative.");
 
-        var normalizedSku = sku.Trim();
-        if (_products.Any(p => p.SKU.Equals(normalizedSku, StringComparison.OrdinalIgnoreCase)))
+        var normalizedSku = NormalizeSku(sku);
+        if (db.Products.Any(p => p.SKU == normalizedSku))
             throw new InvalidOperationException("A product with this SKU already exists.");
 
         var product = new Product
         {
-            Id = _nextId++,
             Name = name.Trim(),
             SKU = normalizedSku,
             UnitPrice = unitPrice,
@@ -32,50 +34,89 @@ public class InventoryService
             LowStockThreshold = lowStockThreshold
         };
 
-        _products.Add(product);
+        db.Products.Add(product);
+        db.SaveChanges();
+
+        if (quantity > 0)
+        {
+            db.StockMovements.Add(CreateMovement(product, quantity, "Initial"));
+            db.SaveChanges();
+        }
+
         return product;
     }
 
     public bool Update(int id, string name, string sku, decimal unitPrice, int lowStockThreshold)
     {
         ValidateProduct(name, sku, unitPrice, lowStockThreshold);
-
-        var product = GetById(id);
+        var product = db.Products.Find(id);
         if (product is null)
             return false;
 
-        var normalizedSku = sku.Trim();
-        if (_products.Any(p => p.Id != id && p.SKU.Equals(normalizedSku, StringComparison.OrdinalIgnoreCase)))
+        var normalizedSku = NormalizeSku(sku);
+        if (db.Products.Any(p => p.Id != id && p.SKU == normalizedSku))
             throw new InvalidOperationException("Another product already uses this SKU.");
 
         product.Name = name.Trim();
         product.SKU = normalizedSku;
         product.UnitPrice = unitPrice;
         product.LowStockThreshold = lowStockThreshold;
+        db.SaveChanges();
         return true;
     }
 
     public bool Delete(int id)
     {
-        var product = GetById(id);
-        return product is not null && _products.Remove(product);
+        var product = db.Products.Find(id);
+        if (product is null)
+            return false;
+
+        // History contains independent product snapshots, so it is retained.
+        db.Products.Remove(product);
+        db.SaveChanges();
+        return true;
     }
 
     public bool ChangeStock(int id, int amount, bool stockIn)
     {
-        var product = GetById(id);
+        var product = db.Products.Find(id);
         if (product is null || amount <= 0)
             return false;
 
         if (!stockIn && product.Quantity < amount)
             throw new InvalidOperationException("Not enough stock for this operation.");
 
-        product.Quantity += stockIn ? amount : -amount;
+        var change = stockIn ? amount : -amount;
+        product.Quantity += change;
+        db.StockMovements.Add(CreateMovement(product, change, stockIn ? "In" : "Out"));
+
+        // Product quantity and movement are committed in one SaveChanges.
+        db.SaveChanges();
         return true;
     }
 
-    public IEnumerable<Product> GetLowStockProducts() =>
-        _products.Where(p => p.Quantity <= p.LowStockThreshold);
+    public IReadOnlyList<Product> GetLowStockProducts() =>
+        db.Products.AsNoTracking()
+            .Where(p => p.Quantity <= p.LowStockThreshold)
+            .OrderBy(p => p.Name)
+            .ToList();
+
+    public IReadOnlyList<StockMovement> GetHistory() =>
+        db.StockMovements.AsNoTracking()
+            .OrderByDescending(m => m.Id)
+            .ToList();
+
+    private static StockMovement CreateMovement(Product product, int delta, string reason) => new()
+    {
+        ProductId = product.Id,
+        ProductSku = product.SKU,
+        ProductName = product.Name,
+        QuantityChange = delta,
+        Reason = reason,
+        OccurredAtUtc = DateTime.UtcNow
+    };
+
+    private static string NormalizeSku(string sku) => sku.Trim().ToUpperInvariant();
 
     private static void ValidateProduct(string name, string sku, decimal unitPrice, int lowStockThreshold)
     {
@@ -83,6 +124,10 @@ public class InventoryService
             throw new ArgumentException("Product name is required.", nameof(name));
         if (string.IsNullOrWhiteSpace(sku))
             throw new ArgumentException("SKU is required.", nameof(sku));
+        if (name.Trim().Length > 200)
+            throw new ArgumentException("Product name is too long.", nameof(name));
+        if (sku.Trim().Length > 64)
+            throw new ArgumentException("SKU is too long.", nameof(sku));
         if (unitPrice < 0)
             throw new ArgumentOutOfRangeException(nameof(unitPrice), "Price cannot be negative.");
         if (lowStockThreshold < 0)

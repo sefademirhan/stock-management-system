@@ -1,12 +1,38 @@
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
+using StockManagement.Data;
 using StockManagement.Services;
 
-var inventory = new InventoryService();
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 var culture = CultureInfo.GetCultureInfo("tr-TR");
 
-Console.OutputEncoding = System.Text.Encoding.UTF8;
+// Windows SQL Server Express LocalDB. Override with STOCK_DB_CONNECTION if needed.
+var connectionString = Environment.GetEnvironmentVariable("STOCK_DB_CONNECTION")
+    ?? @"Server=(localdb)\MSSQLLocalDB;Database=StockManagementDb;Trusted_Connection=True;TrustServerCertificate=True;";
+
+var options = new DbContextOptionsBuilder<StockDbContext>()
+    .UseSqlServer(connectionString)
+    .Options;
+
+using var db = new StockDbContext(options);
+try
+{
+    // Creates StockManagementDb and its tables on first run.
+    // For learning purposes only: use EF Core migrations for future schema changes.
+    db.Database.EnsureCreated();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("Unable to connect to SQL Server LocalDB.");
+    Console.Error.WriteLine("Check 'sqllocaldb info' and 'sqllocaldb start MSSQLLocalDB'.");
+    Console.Error.WriteLine($"Details: {ex.GetBaseException().Message}");
+    return;
+}
+
+var inventory = new InventoryService(db);
 Console.WriteLine("=== Stock Management System ===");
-Console.WriteLine("Note: This first version stores data in memory; data resets when the app closes.");
+Console.WriteLine("Connected to StockManagementDb (SQL Server LocalDB).");
+Console.WriteLine("Products and stock history are saved when you exit.");
 
 while (true)
 {
@@ -19,6 +45,7 @@ while (true)
     5. Stock in
     6. Stock out
     7. Show low-stock products
+    8. Stock movement history
     0. Exit
     """);
     Console.Write("Select an option: ");
@@ -28,27 +55,14 @@ while (true)
     {
         switch (choice)
         {
-            case "1":
-                ListProducts();
-                break;
-            case "2":
-                AddProduct();
-                break;
-            case "3":
-                UpdateProduct();
-                break;
-            case "4":
-                DeleteProduct();
-                break;
-            case "5":
-                ChangeStock(true);
-                break;
-            case "6":
-                ChangeStock(false);
-                break;
-            case "7":
-                ListLowStock();
-                break;
+            case "1": ListProducts(); break;
+            case "2": AddProduct(); break;
+            case "3": UpdateProduct(); break;
+            case "4": DeleteProduct(); break;
+            case "5": ChangeStock(true); break;
+            case "6": ChangeStock(false); break;
+            case "7": ListLowStock(); break;
+            case "8": ShowHistory(); break;
             case "0":
                 Console.WriteLine("Goodbye!");
                 return;
@@ -57,9 +71,17 @@ while (true)
                 break;
         }
     }
+    catch (ArgumentException ex)
+    {
+        Console.WriteLine($"Validation error: {ex.Message}");
+    }
     catch (InvalidOperationException ex)
     {
         Console.WriteLine($"Error: {ex.Message}");
+    }
+    catch (DbUpdateException ex)
+    {
+        Console.WriteLine($"Database error: {ex.GetBaseException().Message}");
     }
 }
 
@@ -84,9 +106,8 @@ void AddProduct()
     var price = ReadDecimal("Unit price: ");
     var quantity = ReadInt("Starting quantity: ", 0);
     var threshold = ReadInt("Low-stock threshold: ", 0);
-
     var product = inventory.Add(name, sku, price, quantity, threshold);
-    Console.WriteLine($"Product created with ID {product.Id}.");
+    Console.WriteLine($"Product saved with ID {product.Id}.");
 }
 
 void UpdateProduct()
@@ -103,16 +124,14 @@ void UpdateProduct()
     var sku = ReadRequired($"SKU ({product.SKU}): ");
     var price = ReadDecimal($"Unit price ({product.UnitPrice}): ");
     var threshold = ReadInt($"Low-stock threshold ({product.LowStockThreshold}): ", 0);
-
     Console.WriteLine(inventory.Update(id, name, sku, price, threshold)
-        ? "Product updated."
-        : "Product not found.");
+        ? "Product updated." : "Product not found.");
 }
 
 void DeleteProduct()
 {
     var id = ReadInt("Product ID to delete: ", 1);
-    Console.WriteLine(inventory.Delete(id) ? "Product deleted." : "Product not found.");
+    Console.WriteLine(inventory.Delete(id) ? "Product deleted (history kept)." : "Product not found.");
 }
 
 void ChangeStock(bool stockIn)
@@ -126,7 +145,7 @@ void ChangeStock(bool stockIn)
 
 void ListLowStock()
 {
-    var products = inventory.GetLowStockProducts().ToList();
+    var products = inventory.GetLowStockProducts();
     if (products.Count == 0)
     {
         Console.WriteLine("No low-stock products.");
@@ -136,6 +155,20 @@ void ListLowStock()
     Console.WriteLine("Low-stock products:");
     foreach (var p in products)
         Console.WriteLine($"{p.Name} (SKU: {p.SKU}) — quantity: {p.Quantity}, threshold: {p.LowStockThreshold}");
+}
+
+void ShowHistory()
+{
+    var movements = inventory.GetHistory();
+    if (movements.Count == 0)
+    {
+        Console.WriteLine("No stock movements yet.");
+        return;
+    }
+
+    Console.WriteLine("Date/time | Product | Movement | Quantity");
+    foreach (var m in movements)
+        Console.WriteLine($"{m.OccurredAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} | {m.ProductName} ({m.ProductSku}) | {m.Reason} | {m.QuantityChange:+#;-#;0}");
 }
 
 string ReadRequired(string prompt)
