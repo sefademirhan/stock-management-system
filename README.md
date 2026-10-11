@@ -4,6 +4,12 @@
 
 A practical inventory application built with **C# / .NET 8**, **Windows Forms**, **Entity Framework Core**, and **SQL Server LocalDB**. It includes both a desktop window and a console interface.
 
+## Desktop application preview
+
+![Stock Management desktop dashboard showing product list, inventory controls, and search](stock-management-preview.png)
+
+*Windows Forms dashboard showing the inventory table, stock actions, and product search. Screenshot from the working Windows application.*
+
 ## Features
 
 - Windows Forms desktop dashboard with Turkish labels, product table and searching
