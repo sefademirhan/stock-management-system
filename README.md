@@ -15,6 +15,17 @@ A practical inventory application built with **C# / .NET 8**, **Windows Forms**,
 - Maintain stock history after deleting a product
 - Automated xUnit inventory tests and GitHub Actions build checks
 
+## Download the Windows desktop executable
+
+Prefer not to use the terminal? A self-contained **Windows x64 desktop build** is produced automatically by GitHub Actions.
+
+1. Open [Windows desktop builds](https://github.com/sefademirhan/stock-management-system/actions/workflows/windows-desktop.yml).
+2. Click the newest successful run.
+3. Under **Artifacts**, download `StockManagement-Windows-x64`.
+4. Extract the ZIP and open `StockManagement.Desktop.exe`.
+
+The executable includes the .NET runtime, but **SQL Server LocalDB still needs to be installed**. The file is unsigned because this is a learning project; Windows may display an unknown-publisher warning. The downloadable artifact expires after 30 days, and later successful builds produce a fresh copy.
+
 ## Run the Windows desktop app
 
 1. Install [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and SQL Server Express LocalDB.
