@@ -1,0 +1,23 @@
+name: Windows desktop build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore desktop project
+        run: dotnet restore src/StockManagement.Desktop/StockManagement.Desktop.csproj
+      - name: Build desktop application
+        run: dotnet build src/StockManagement.Desktop/StockManagement.Desktop.csproj -c Release --no-restore
