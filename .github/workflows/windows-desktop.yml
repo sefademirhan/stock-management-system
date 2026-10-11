@@ -21,3 +21,12 @@ jobs:
         run: dotnet restore src/StockManagement.Desktop/StockManagement.Desktop.csproj
       - name: Build desktop application
         run: dotnet build src/StockManagement.Desktop/StockManagement.Desktop.csproj -c Release --no-restore
+      - name: Publish Windows x64 executable
+        run: dotnet publish src/StockManagement.Desktop/StockManagement.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output published-desktop
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StockManagement-Windows-x64
+          path: published-desktop/
+          if-no-files-found: error
+          retention-days: 30
